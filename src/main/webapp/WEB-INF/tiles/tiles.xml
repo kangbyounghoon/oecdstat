@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE tiles-definitions PUBLIC
+       "-//Apache Software Foundation//DTD Tiles Configuration 2.1//EN"
+       "http://tiles.apache.org/dtds/tiles-config_2_1.dtd">
+
+<tiles-definitions>
+	
+	<!-- 메인페이지 레이아웃 -->
+	<definition name="korMainIndex" template="/WEB-INF/jsp/layout/kor/korMainLayout.jsp">
+		<put-attribute name="top" value="/WEB-INF/jsp/layout/kor/korTop.jsp"></put-attribute>
+		<put-attribute name="body" value="/WEB-INF/jsp/index.jsp"></put-attribute>
+		<put-attribute name="bottom" value="/WEB-INF/jsp/layout/kor/korBottom.jsp"></put-attribute>
+	</definition>
+	
+	<!-- 페이지 레이아웃 -->
+	<definition name="korIndex" template="/WEB-INF/jsp/layout/kor/korLayout.jsp">
+		<put-attribute name="top" value="/WEB-INF/jsp/layout/kor/korTop.jsp"></put-attribute>
+		<put-attribute name="body" value="/WEB-INF/jsp/index.jsp"></put-attribute>
+		<put-attribute name="bottom" value="/WEB-INF/jsp/layout/kor/korBottom.jsp"></put-attribute>
+	</definition>
+	
+	<!-- ** 공통 페이지 ** -->
+	<!-- 에러페이지 -->
+	<definition name="ErrorPage" template="/WEB-INF/error/accessError.jsp"></definition>
+	<!-- 엑셀 다운로드 -->
+	<definition name="excel" template="/WEB-INF/jsp/layout/common/excel_layout.jsp"></definition>
+	<!-- 엑셀 다운로드 -->
+	<definition name="txt" template="/WEB-INF/jsp/layout/common/txt_layout.jsp"></definition>
+	
+	<definition name="kor/main/*" extends="korMainIndex">
+		<put-attribute name="body" value="/WEB-INF/jsp/kor/main/{1}.jsp"></put-attribute>
+	</definition>	
+	<!-- 게시판-->
+	<definition name="kor/board/*" extends="korIndex">
+		<put-attribute name="body" value="/WEB-INF/jsp/kor/board/{1}.jsp"></put-attribute>
+	</definition>
+	<definition name="kor/board/popup/*" template="/WEB-INF/jsp/layout/kor/korPopupLayout.jsp">
+		<put-attribute name="body" value="/WEB-INF/jsp/kor/board/popup/{1}.jsp"></put-attribute>
+	</definition>
+	<!-- 게시판 미리보기 화면(상세화면) -->
+	<definition name="kor/board/popup/previewDetail/*" template="/WEB-INF/jsp/layout/kor/korPopupLayout.jsp">
+		<put-attribute name="body" value="/WEB-INF/jsp/kor/board/popup/previewDetail/{1}.jsp"></put-attribute>
+	</definition>
+	<!-- 게시판 미리보기 화면(리스트상세화면) -->
+	<definition name="kor/board/popup/previewList/*" template="/WEB-INF/jsp/layout/kor/korPopupLayout.jsp">
+		<put-attribute name="body" value="/WEB-INF/jsp/kor/board/popup/previewList/{1}.jsp"></put-attribute>
+	</definition>
+	
+	<definition name="kor/common/layer/*" template="/WEB-INF/jsp/layout/kor/korLayerLayout.jsp">
+		<put-attribute name="body" value="/WEB-INF/jsp/kor/common/layer/{1}.jsp"></put-attribute>
+	</definition>
+	
+	<!-- 통계서비스 -->
+	<definition name="kor/tblInfo/*" extends="korIndex">
+		<put-attribute name="body" value="/WEB-INF/jsp/kor/tblInfo/{1}.jsp"></put-attribute>
+	</definition>	
+	
+	<!-- 검색 -->
+	<definition name="kor/search/*" extends="korIndex">
+		<put-attribute name="body" value="/WEB-INF/jsp/kor/search/{1}.jsp"></put-attribute>
+	</definition>
+	
+	<!-- 소개 -->
+	<definition name="kor/introduce/*" extends="korIndex">
+		<put-attribute name="body" value="/WEB-INF/jsp/kor/introduce/{1}.jsp"></put-attribute>
+	</definition>	
+	
+	<!-- 프린트 팝업 -->
+	<definition name="kor/common/popup/*" template="/WEB-INF/jsp/layout/kor/korPopupLayout.jsp">
+		<put-attribute name="body" value="/WEB-INF/jsp/kor/common/popup/{1}.jsp"></put-attribute>
+	</definition>
+	
+	<!-- 메타정보 -->
+	<definition name="kor/metaInfo/*" extends="korIndex">
+		<put-attribute name="body" value="/WEB-INF/jsp/kor/metaInfo/{1}.jsp"></put-attribute>
+	</definition>	
+	<definition name="kor/tblInfo/popup/*" template="/WEB-INF/jsp/layout/kor/korPopupLayout.jsp">
+		<put-attribute name="body" value="/WEB-INF/jsp/kor/tblInfo/popup/{1}.jsp"></put-attribute>
+	</definition>
+</tiles-definitions>

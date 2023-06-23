@@ -1,0 +1,257 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="file">
+
+	<!-- 첨부파일 다음 시퀀스 조회 -->
+	<select id="selectNextFileSeq" resultType="String">
+		select nvl(max(t.file_seq),0) + 1
+		from tg_attach t
+	</select>
+
+	<!-- 첨부파일 등록 -->
+	<insert id="insertAttachFile" >
+		insert into tg_attach (
+		file_seq, file_name, real_name, directory, file_flag)
+		values (#{file_seq}, #{file_name}, #{real_name}, #{directory}, #{file_flag})
+	</insert>
+
+	<!-- Board 첨부파일 내용 삭제 -->
+	<delete id="deleteAttachFile">
+    <![CDATA[
+        delete from tg_attach where file_seq = #{file_seq}
+    ]]>
+	</delete>
+
+	<!-- 첨부파일 실제 파일명 조회 -->
+	<select id="selectRealName" resultType="java.lang.String">
+		select real_name
+		from tg_attach
+		where file_seq=#{file_seq}
+	</select>
+
+	<!-- Board -->
+	<!--Board 첨부파일 목록 조회 -->
+	<select id="selectBoardAttachList" resultType="fileBean">
+		SELECT A.BOARD_SEQ, A.FILE_SEQ, A.ATTECH_TYPE
+				, B.FILE_NAME, B.REAL_NAME, B.DIRECTORY
+		  FROM TG_BOARD_ATTACH A, TG_ATTACH B
+		 WHERE A.FILE_SEQ = B.FILE_SEQ
+			AND A.BOARD_SEQ = #{board_seq}
+		 ORDER BY A.BOARD_SEQ, DECODE(A.FILE_SJ, NULL, 0, 1), B.FILE_NAME, A.FILE_SEQ
+	</select>
+
+	<!-- Board 첨부파일 정보 등록 -->
+	<insert id="insertBoardAttachFile">
+    <![CDATA[
+		insert into tg_board_attach (
+		   file_seq, board_seq, attech_type) 
+		values (#{file_seq}, #{board_seq}, #{attech_type})
+	]]>
+	</insert>
+
+	<!-- Board 첨부파일 내용 삭제 -->
+	<delete id="deleteBoardAttachFile">
+		delete from tg_board_attach where board_seq = #{board_seq}
+	</delete>
+	
+	<select id="getRealName" resultType="fileBean">
+        SELECT DIRECTORY, REAL_NAME FROM TG_BOARD_ATTACH A, TG_ATTACH B
+		WHERE A.FILE_SEQ = B.FILE_SEQ
+          AND A.BOARD_SEQ = #{board_seq} AND A.FILE_SEQ = #{file_seq}
+	</select>
+	
+	<delete id="deleteFile">
+        DELETE TG_BOARD_ATTACH 
+        WHERE BOARD_SEQ = #{board_seq} AND FILE_SEQ = #{file_seq}
+	</delete>
+	
+
+	<!-- Board 다운로드 횟수 수정 -->
+	<update id="updateBoardDownCnt" >
+	  update tg_board_attach
+	  	set    down_count    = down_count + 1
+	  where  board_seq     = #{board_seq}
+	</update>
+
+	<update id="updateDownLog" parameterType="map">
+		<![CDATA[
+		UPDATE	TN_DOWNLOG SET $columnName$ = $columnName$ + 1
+		WHERE	YEAR = #{year} AND MONTH = #{month}
+				AND FILE_SEQ = #{file_seq}
+				AND BOARD_SEQ = #{board_seq}
+		]]>
+	</update>
+	
+	<insert id="insertDownLog" parameterType="map">
+		<![CDATA[
+		INSERT INTO	TN_DOWNLOG (
+			YEAR, MONTH
+			, FILE_SEQ
+			, BOARD_SEQ
+			, $columnName$
+		) VALUES (
+			#{year}, #{month}
+			, #{file_seq}
+			, #{board_seq}
+			, 1
+		)			
+		]]>
+	</insert>
+
+	<delete id="deleteDownLog" parameterType="map">
+		<![CDATA[
+		DELETE FROM TN_DOWNLOG where board_seq = #{board_seq}
+		]]>
+	</delete>
+
+	<!-- 첨부파일 시퀀스 목록조회 -->
+	<select id="selectBoardFileSeqList" resultType="java.lang.String">
+	  select file_seq
+          from tg_board_attach
+        where board_seq     = #{board_seq}
+	</select>
+
+
+<!-- Contents -->
+	<!-- Contents 첨부파일 목록 조회 -->
+	<select id="selectContAttachList" resultType="fileBean">
+        SELECT A.CONT_SEQ,
+               A.FILE_SEQ,
+               A.DOWN_COUNT,
+               A.ATTECH_TYPE,
+               B.FILE_NAME,
+               B.REAL_NAME,
+               B.DIRECTORY,
+               B.FILE_FLAG
+          FROM TG_CONTS_ATTACH A, TG_ATTACH B
+         WHERE A.FILE_SEQ = B.FILE_SEQ
+       		 AND A.CONT_SEQ IN (
+       		 		<foreach collection="array" item="item" index="index" separator=",">
+						${item}
+					</foreach>
+					)
+	</select>
+	
+	<!-- Contents 첨부파일 목록 조회(데이터다운로드) -->
+	<select id="selectContAttachList_D" resultType="fileBean">
+        SELECT A.CONT_SEQ,
+               A.FILE_SEQ,
+               A.DOWN_COUNT,
+               A.ATTECH_TYPE,
+               B.FILE_NAME,
+               B.REAL_NAME,
+               B.DIRECTORY,
+               B.FILE_FLAG
+          FROM TG_CONTS_ATTACH A, TG_ATTACH B
+         WHERE A.FILE_SEQ = B.FILE_SEQ
+       		 AND A.CONT_SEQ = #{cont_seq}
+       		 AND A.EXTENTION = #{extention}
+	</select>
+
+	<!-- Contents 첨부파일 정보 등록 -->
+	<insert id="insertContAttachFile">
+    <![CDATA[
+	  INSERT INTO TG_CONTS_ATTACH (
+	     CONT_SEQ, FILE_SEQ, PROJECT_DIV, ATTECH_TYPE, DOWN_COUNT) 
+	  VALUES (#{cont_seq}, #{file_seq}, #{project_div}, #{attech_type}, 0)
+	]]>
+	</insert>
+
+	<!-- Contents 첨부파일 삭제내용조회 -->
+	<select id="getRealNameConts" resultType="fileBean">
+        SELECT DIRECTORY, REAL_NAME FROM TG_CONTS_ATTACH A, TG_ATTACH B
+		WHERE A.FILE_SEQ = B.FILE_SEQ
+          AND A.CONT_SEQ = #{cont_seq} AND A.FILE_SEQ = #{file_seq}
+	</select>
+
+	<!-- Contents 첨부파일 내용 삭제 -->
+	<delete id="deleteContFile">
+       DELETE TG_CONTS_ATTACH 
+       WHERE CONT_SEQ = #{cont_seq} 
+           AND FILE_SEQ = #{file_seq} 
+           AND PROJECT_DIV = #{project_div}
+	</delete>
+
+	<!-- Contents 다운로드 횟수 수정 -->
+	<update id="updateContDownCnt">
+	  UPDATE TG_CONTS_ATTACH
+	  	   SET DOWN_COUNT    = DOWN_COUNT + 1
+	  WHERE CONT_SEQ = #{cont_seq} 
+	   	  AND FILE_SEQ = #{file_seq}
+	   	  AND PROJECT_DIV = #{project_div}
+	</update>
+
+	<!-- Contents 첨부파일 시퀀스 목록조회 -->
+	<select id="selectContFileSeqList" resultType="java.lang.String">
+	  SELECT FILE_SEQ
+          FROM TG_CONTS_ATTACH
+        WHERE CONT_SEQ = #{cont_seq}
+        	AND PROJECT_DIV = #{project_div}
+	</select>
+
+	<!-- 보고서관리 조회 -->
+	<select id="selectReprtList" resultType="java.util.HashMap">
+	  SELECT * FROM TG_ATTACH
+       WHERE DIRECTORY = 'reprt'
+	</select>
+
+	<!-- 파일 다운로드 건수 조회 -->
+	<select id="selectAtchDwldCo" resultType="java.lang.Integer">
+		SELECT SUM(DWLD_CO) AS DWLD_CO
+		  FROM TN_ATCH_DWLD_CO_LIST
+		 WHERE FILE_SEQ = #{file_seq}
+	</select>
+
+	<!-- 파일 다운로드 건수 업데이트 -->
+	<update id="updateAtchDwldCo">
+		MERGE INTO TN_ATCH_DWLD_CO_LIST A
+		USING (
+	         SELECT #{file_seq}		AS FILE_SEQ
+	                 , #{dwld_de}		AS DWLD_DE
+	           FROM DUAL
+	       ) B
+	    ON (A.FILE_SEQ = B.FILE_SEQ AND TO_CHAR(A.DWLD_DE, 'YYYY-MM-DD') = B.DWLD_DE)
+	  WHEN MATCHED THEN
+	UPDATE SET DWLD_CO	= A.DWLD_CO + 1
+	  WHEN NOT MATCHED THEN
+	INSERT (FILE_SEQ, DWLD_DE, DWLD_CO)
+	VALUES (#{file_seq}, #{dwld_de}, 1)
+	</update>
+
+<!-- 주요보고서 -->
+	<!-- 쿼리명 : 주요보고서 첨부파일 목록 조회
+			설명 : 주요보고서 첨부파일 목록을 조회하는 쿼리
+			수정일			수정자		수정내용
+			************		********		*********
+			2020.08.12		함아름		최초 생성
+		작성자 : 함아름
+		최초작성일 : 2020.08.12
+	-->
+	<select id="selectMainReprtAtchList" resultType="fileBean">
+		SELECT A.REPRT_SN, A.BASS_FILE_AT, A.DATA_TY, A.DATA_SN, A.FILE_EXTSN
+		     , B.FILE_SEQ, B.FILE_NAME, B.REAL_NAME, B.DIRECTORY, B.FILE_FLAG
+		  FROM TN_MAIN_REPRT_ATCH_LIST A
+		     , TG_ATTACH B
+		 WHERE A.FILE_SEQ = B.FILE_SEQ
+		   AND A.REPRT_SN = #{reprt_sn}
+
+			<if test="@org.apache.commons.lang.StringUtils@isNotEmpty(bass_file_at)">
+			AND A.BASS_FILE_AT = #{bass_file_at}
+			</if>
+
+			<if test="@org.apache.commons.lang.StringUtils@isNotEmpty(file_extsn)">
+			AND A.FILE_EXTSN = #{file_extsn}
+			</if>
+
+			<if test="@org.apache.commons.lang.StringUtils@isNotEmpty(data_ty)">
+			AND A.DATA_TY = #{data_ty}
+			</if>
+
+			<if test="@org.apache.commons.lang.StringUtils@isNotEmpty(data_sn)">
+			AND A.DATA_SN = #{data_sn}
+			</if>
+
+		 ORDER BY B.FILE_NAME, B.FILE_SEQ
+	</select>
+</mapper>

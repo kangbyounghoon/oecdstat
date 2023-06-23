@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="search">
+
+	<select id="selectTblList" resultType="searchBean">
+		<![CDATA[
+			WITH MENU_LIST AS (
+			    SELECT MENU_ID, UP_MENU_ID, MENU_URL, DECODE(#{lang}, 'en', MENU_ENG_NM, MENU_NM) AS MENU_NM
+			         , SUBSTR(SYS_CONNECT_BY_PATH(DECODE(#{lang}, 'en', MENU_ENG_NM, MENU_NM), ' > '), 4) AS MENU_PATH
+			      FROM TG_MENU A
+			     WHERE MENU_DIV = 'MENU002'
+			       AND USE_AT = 'Y'
+			     START WITH UP_MENU_ID IS NULL
+			     CONNECT BY PRIOR MENU_ID = UP_MENU_ID
+			     ORDER SIBLINGS BY UP_MENU_ID
+			), SVC_LIST AS (
+				SELECT * FROM (
+					SELECT AA.*, SUBSTR(SYS_CONNECT_BY_PATH(LIST_NM, ' > '), 4) AS LIST_FULL_PATH, SUBSTR(SYS_CONNECT_BY_PATH(LIST_ID, ' > '), 4) AS LIST_ID_PATH
+					FROM (
+						SELECT 'SVC' AS LIST_TYPE, A.VW_CD, A.ORG_ID, DECODE(#{lang}, 'en', A.VW_ENG_NM, A.VW_NM) AS VW_NM, A.VW_SN
+						     , B.LIST_ID, B.UP_LIST_ID, B.LIST_ID || A.VW_CD AS CHK_LIST_ID, NVL2(B.UP_LIST_ID, B.UP_LIST_ID || A.VW_CD, '') AS CHK_UP_LIST_ID, B.UP_VW_CD, DECODE(#{lang}, 'en', B.LIST_ENG_NM, B.LIST_NM) AS LIST_NM
+						     , '' AS TBL_ID, '' AS STAT_ID, '' AS STAT_NM
+						  FROM NSI_IN_007.TN_SRVC_VW A, NSI_IN_007.TN_SRVC_LIST B
+						 WHERE A.VW_CD = B.VW_CD
+						   AND A.PUB_SE NOT IN ('1210111', '1210112')
+						 UNION ALL
+						 SELECT 'TBL' AS LIST_TYPE, A.VW_CD, A.ORG_ID, DECODE(#{lang}, 'en', A.VW_ENG_NM, A.VW_NM) AS VW_NM, A.VW_SN
+						     , B.TBL_ID AS LIST_ID, B.LIST_ID AS UP_LIST_ID, B.TBL_ID || A.VW_CD AS CHK_LIST_ID, B.LIST_ID || A.VW_CD AS CHK_UP_LIST_ID, '' AS UP_VW_CD, DECODE(#{lang}, 'en', C.TBL_ENG_NM, C.TBL_NM) AS LIST_NM
+						     , B.TBL_ID, C.STAT_ID, C.STAT_NM 
+						  FROM NSI_IN_007.TN_SRVC_VW A, NSI_IN_007.TN_LIST_STBL_REL B, NSI_IN_007.TN_STBL_INFO C
+						 WHERE A.VW_CD = B.VW_CD
+						   AND B.TBL_ID = C.TBL_ID
+						   AND A.PUB_SE NOT IN ('1210111', '1210112')
+						   AND C.PUB_SE NOT IN ('1210111', '1210112')
+					) AA 
+					START WITH CHK_UP_LIST_ID IS NULL
+					CONNECT BY PRIOR CHK_LIST_ID = CHK_UP_LIST_ID
+					ORDER SIBLINGS BY LIST_NM
+				) WHERE LIST_TYPE = 'TBL'
+			), PRD_LIST AS (
+			    SELECT ORG_ID, TBL_ID, MAX(PRD_SE) AS PRD_SE, LISTAGG(PRD_NM, ',') WITHIN GROUP(ORDER BY PRD_NM) AS PRD_NM, MIN(STRT_PRD_DE) || ' ~ ' || MAX(END_PRD_DE) AS PRD_DE
+			      FROM (
+			        SELECT A.ORG_ID, A.TBL_ID, A.PRD_SE, NSI_IN_007.GET_PRD_DETAIL_NAME(A.PRD_SE, B.PRD_DETAIL, DECODE(#{lang}, 'en', 'ENG', 'KOR')) AS PRD_NM
+			             , A.STRT_PRD_DE, A.END_PRD_DE
+			          FROM NSI_IN_007.TN_STBL_RECD_INFO A, NSI_IN_007.TC_PRD_DETAIL B
+			         WHERE A.PRD_DETAIL = B.PRD_DETAIL(+)
+			           AND A.PUB_SE NOT IN ('1210111', '1210112')
+			    ) GROUP BY ORG_ID, TBL_ID
+			), TBL_LIST AS (
+			    SELECT *
+			      FROM (
+			        SELECT '2020000' AS MENU_ID
+			        	 , AA.VW_CD, AA.VW_NM, AA.UP_LIST_ID, AA.LIST_ID, AA.LIST_NM, AA.LIST_FULL_PATH, SUBSTR(AA.LIST_ID_PATH, 0, INSTR(AA.LIST_ID_PATH, ' > ')-1) AS TOP_LIST_ID
+			        	 , AB.ORG_ID, AB.TBL_ID, DECODE(#{lang}, 'en', AB.TBL_ENG_NM, AB.TBL_NM) AS TBL_NM
+			             , AC.PRD_SE, AC.PRD_NM, AC.PRD_DE
+			             , (SELECT DECODE(#{lang}, 'en', STAT_ENG_NM, STAT_NM) FROM NSI_IN_007.TN_STAT WHERE STAT_ID = AB.STAT_ID) AS STAT_NM
+			          FROM SVC_LIST AA, NSI_IN_007.TN_STBL_INFO AB, PRD_LIST AC
+			         WHERE AA.ORG_ID = AB.ORG_ID
+			           AND AA.TBL_ID = AB.TBL_ID
+			           AND AB.ORG_ID = AC.ORG_ID
+			           AND AB.TBL_ID = AC.TBL_ID
+			           AND AB.PUB_SE NOT IN ('1210111', '1210112')
+			    ) WHERE MENU_ID IS NOT NULL
+	    			AND (
+				        UPPER(LIST_FULL_PATH) LIKE '%' || UPPER(#{srchwrd}) || '%' OR
+				        UPPER(TBL_NM) LIKE '%' || UPPER(#{srchwrd}) || '%' OR
+				        UPPER(PRD_NM) LIKE '%' || UPPER(#{srchwrd}) || '%' OR
+				        UPPER(PRD_DE) LIKE '%' || UPPER(#{srchwrd}) || '%'
+			    )
+			), SEARCH_LIST AS (
+			    SELECT COUNT(*) OVER() AS TOT_CNT, S.*, T.MENU_PATH, SUBSTR(S.LIST_FULL_PATH, 0, INSTR(S.LIST_FULL_PATH, '>', -1) - 2) AS LIST_PATH
+			      FROM TBL_LIST S, MENU_LIST T
+				 WHERE S.MENU_ID = T.MENU_ID
+			     ORDER BY (CASE WHEN INSTR(UPPER(S.LIST_FULL_PATH), UPPER(#{srchwrd})) > 0 THEN 1
+			                    WHEN INSTR(UPPER(S.TBL_NM), UPPER(#{srchwrd})) > 0 THEN 2
+			                    WHEN INSTR(UPPER(S.PRD_NM), UPPER(#{srchwrd})) > 0 THEN 4
+			                    WHEN INSTR(UPPER(S.PRD_DE), UPPER(#{srchwrd})) > 0 THEN 5 END), S.PRD_NM, S.PRD_DE DESC, S.LIST_FULL_PATH, S.TBL_NM, S.STAT_NM
+			) SELECT * FROM (
+				SELECT ROWNUM AS RNUM, Z.* FROM SEARCH_LIST Z
+			) WHERE RNUM > #{firstIndex} and RNUM <= #{lastIndex}
+		 ]]>
+	</select>
+	
+ 	<select id="selectMetaList" resultType="searchBean">
+		WITH MENU_LIST AS (
+		    SELECT MENU_ID, UP_MENU_ID, MENU_URL, DECODE(#{lang}, 'en', MENU_ENG_NM, MENU_NM) AS MENU_NM
+		         , SUBSTR(SYS_CONNECT_BY_PATH(DECODE(#{lang}, 'en', MENU_ENG_NM, MENU_NM), ' > '), 4) AS MENU_PATH
+		      FROM TG_MENU A
+		     WHERE MENU_DIV = 'MENU002'
+		       AND USE_AT = 'Y'
+		     START WITH UP_MENU_ID IS NULL
+		     CONNECT BY PRIOR MENU_ID = UP_MENU_ID
+		     ORDER SIBLINGS BY UP_MENU_ID
+		), META_CODE_LIST AS (
+		    SELECT LIST_CODE, UP_LIST_CODE, LIST_CODE_NM, LIST_CODE_NM_EN, LIST_ORDR
+	      , (SELECT LIST_CODE FROM TN_META_LIST WHERE LIST_CODE = (
+	       		 SELECT UP_LIST_CODE FROM TN_META_LIST WHERE LIST_CODE = A.UP_LIST_CODE)
+	      	) AS TOP_CODE_ID,
+		    SUBSTR(SYS_CONNECT_BY_PATH(LIST_CODE_NM, ' > '), 4) LIST_FULL_PATH
+		    FROM (
+		        SELECT LIST_CODE, UP_LIST_CODE,
+		               LIST_CODE_NM, LIST_CODE_NM_EN, LIST_ORDR
+		        FROM   TN_META_LIST
+		        WHERE  USE_AT = 'Y'
+		    ) A
+		    START WITH UP_LIST_CODE IS NULL
+		    CONNECT BY PRIOR LIST_CODE = UP_LIST_CODE
+		    ORDER SIBLINGS BY LIST_ORDR
+		), META_INFO_LIST AS (
+		    SELECT IX_NO, STATS_CODE, STATS_THEMA,
+		           INSTT, IX_STATS_NM_KO, IX_STATS_NM_EN
+		      FROM TN_IX_SUMRY_INFO   
+		     WHERE USE_AT = 'Y' 
+		), META_LIST AS (
+		  SELECT *
+		    FROM ( SELECT '2030000' AS MENU_ID, AA.UP_LIST_CODE, AA.TOP_CODE_ID, AA.LIST_CODE_NM_EN, BB.IX_NO, BB.STATS_CODE, BB.STATS_THEMA, 
+		                   AA.LIST_FULL_PATH, BB.INSTT, BB.IX_STATS_NM_KO, BB.IX_STATS_NM_EN
+		              FROM META_CODE_LIST AA,
+		                   META_INFO_LIST BB
+		             WHERE AA.LIST_CODE = BB.STATS_CODE
+		          ORDER BY TO_NUMBER(REGEXP_REPLACE(BB.IX_NO, '[^0-9]')) )        
+		    WHERE MENU_ID IS NOT NULL
+		      AND ( UPPER(LIST_FULL_PATH) LIKE '%' || UPPER(#{srchwrd}) || '%' OR
+		            UPPER(IX_STATS_NM_KO) LIKE '%' || UPPER(#{srchwrd}) || '%' OR
+		            UPPER(IX_STATS_NM_EN) LIKE '%' || UPPER(#{srchwrd}) || '%' OR
+		            UPPER(INSTT) LIKE '%' || UPPER(#{srchwrd}) || '%' ) 
+		), SEARCH_LIST AS (
+		     SELECT COUNT(*) OVER() AS TOT_CNT, M.*, 
+		            M.LIST_FULL_PATH AS LIST_PATH
+		       FROM META_LIST M, MENU_LIST T
+		      WHERE M.MENU_ID = T.MENU_ID
+		  ORDER BY ( CASE WHEN INSTR(UPPER(M.LIST_FULL_PATH), UPPER(#{srchwrd})) > 0 THEN 1
+		                  WHEN INSTR(UPPER(M.IX_STATS_NM_KO), UPPER(#{srchwrd})) > 0 THEN 2
+		                  WHEN INSTR(UPPER(M.INSTT), UPPER(#{srchwrd})) > 0 THEN 3 END), LPAD(M.ix_no, 5, '0') 
+		) SELECT * FROM (
+		    SELECT ROWNUM AS RNUM, Z.* FROM SEARCH_LIST Z
+		) WHERE RNUM > #{firstIndex} and RNUM <![CDATA[<]]>= #{lastIndex}		
+	</select>
+</mapper>

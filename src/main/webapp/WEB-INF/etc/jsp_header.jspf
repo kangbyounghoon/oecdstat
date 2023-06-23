@@ -1,0 +1,35 @@
+<%@ page language="java" %>
+<%@ page pageEncoding="UTF-8" %>
+<%
+// prevent file cache
+	if (request.getProtocol().compareTo("HTTP/1.0") == 0){
+		response.setHeader("Pragma", "no-cache");
+	}else if (request.getProtocol().compareTo("HTTP/1.1") == 0){
+		response.setHeader("Cache-Control", "no-cache");
+	}
+	response.setDateHeader("Expires", 0);
+
+   // p3p
+   response.setHeader("P3P","CP='CAO PSA CONi OTR OUR DEM ONL'");
+
+   // server URL
+   String serverURL = request.getServerName();
+   String serverPort = String.valueOf(request.getServerPort());
+   String serverDomain = "http://" + serverURL;
+   if (!org.apache.commons.lang.StringUtils.equals(serverPort, "80")) {
+       serverDomain += ":" + serverPort;
+   }
+   pageContext.setAttribute("serverDomain", serverDomain);
+
+	String contextPath = request.getContextPath();
+%>
+
+<!-- security -->
+<%@ taglib uri="http://www.springframework.org/security/tags" prefix="sec" %>
+<%@ taglib uri="http://www.springframework.org/tags" prefix="spring" %>
+
+<%-- jstl --%>
+<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="http://java.sun.com/jsp/jstl/functions" prefix="fn" %>
+<%@ taglib uri="http://java.sun.com/jsp/jstl/xml" prefix="x" %>

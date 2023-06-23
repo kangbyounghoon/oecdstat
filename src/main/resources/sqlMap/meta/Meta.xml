@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="meta">
+
+<select id="selectMetaList" resultType="metaBean">
+	SELECT list_code, up_list_code, list_code_nm, list_code_nm_en
+	FROM   tn_meta_list
+	WHERE 1=1	
+	AND use_at='Y'
+	<if test="@org.apache.commons.lang.StringUtils@isEmpty(up_list_code)">
+		AND up_list_code = #{top_code_id}
+	</if>
+	<if test="@org.apache.commons.lang.StringUtils@isNotEmpty(up_list_code)">
+		AND up_list_code = #{up_list_code}
+	</if>
+	ORDER BY list_code
+</select>
+
+<!-- 기관별 리스트 -->
+<select id="selectMetaOrgList" resultType="metaBean">
+	SELECT DISTINCT instt list_code_nm
+	FROM	TN_IX_SUMRY_INFO
+</select>
+
+<!-- 메타정보 리스트 -->
+<select id="selectMetaInfoList" resultType="metaBean" parameterType="String">
+	SELECT ix_no, ix_stats_nm_ko list_code_nm, stats_code
+	  FROM	TN_IX_SUMRY_INFO
+	WHERE 1=1 
+	  AND USE_AT = 'Y'
+	  AND STATS_CODE = #{tbl_id}
+	ORDER BY (REGEXP_REPLACE(IX_NO, '[^0-9]')) ASC
+</select>
+
+<select id="selectIxSumryInfo" resultType="metaBean">
+	SELECT STATS_THEMA, IX_NO, IX_RELATE_JRSD_DEPT1, IX_RELATE_JRSD_DEPT2
+     	 , IX_STATS_NM_KO, IX_STATS_NM_EN, IX_UNIT_KO
+     	 , IX_UNIT_EN, STATS_DFN_KO, STATS_DFN_EN
+     	 , COMPUT_FRMLA, COMPUT_MTH_KO, PRESENTN_IX_NM
+     	 , INSTT, STATS_DTA_NM, CONFM_AT
+     	 , PUBLICT_AT, USE_AT, RGSDE
+     	 , STATS_CODE, IX_RELATE_JRSD_INSTT1, IX_RELATE_JRSD_INSTT2, REMARKS, SOURCE_METHOD
+	  FROM TN_IX_SUMRY_INFO 
+	 WHERE ix_no = #{ix_no}
+</select>
+
+<!-- 메타(지표정의 및 작성정보) 상세내용 -->
+<select id="selectIxDfnWritngInfo"  resultType="metaBean">
+	SELECT IX_NO, OECD_DFN_KO, OECD_DFN_EN
+	FROM TN_IX_DFN_WRITNG_INFO 
+	WHERE IX_NO = #{ix_no}
+</select>
+
+<!-- 메타(지표설명자료) 상세내용 -->
+<select id="selectIxDcDta"  resultType="metaBean">
+	SELECT IX_NO, STATS_NM_KO, STATS_NM_EN, CONFM_AT_KO, CONFM_AT_EN, CONFM_NO_KO, CONFM_NO_EN
+	     , CONFM_YEAR_KO, CONFM_YEAR_EN, WRITNG_INSTT_KO, WRITNG_INSTT_EN, WRITNG_PURPS_KO, WRITNG_PURPS_EN
+	     , WRITNG_TRGET_KO, WRITNG_TRGET_EN, WRITNG_STLE_KO, WRITNG_STLE_EN, RELATE_LAWORD_KO, RELATE_LAWORD_EN
+	     , FRST_WRITNG_YEAR_KO, FRST_WRITNG_YEAR_EN, RECENT_WRITNG_YEAR_KO, RECENT_WRITNG_YEAR_EN, WRITNG_CYCLE_KO, WRITNG_CYCLE_EN
+	     , WRITNG_SYSTM_KO, WRITNG_SYSTM_EN, P_PUBLICT_AT_KO, P_PUBLICT_AT_EN
+	     , P_PUBLICT_CYCLE_KO, P_PUBLICT_CYCLE_EN, P_PUBLICT_FX_KO, P_PUBLICT_FX_EN, P_PUBLICT_NM_KO, P_PUBLICT_NM_EN
+	     , C_PUBLICT_AT_KO, C_PUBLICT_AT_EN, C_PUBLICT_CYCLE_KO, C_PUBLICT_CYCLE_EN, C_PUBLICT_FX_KO, C_PUBLICT_FX_EN
+	     , C_SITE_NM_KO, C_SITE_NM_EN, UN_PUBLICT_PRVNSH_KO, UN_PUBLICT_PRVNSH_EN, PSITN_INSTT_NM_KO, PSITN_INSTT_NM_EN
+	     , PSITN_DEPT_NM_KO, PSITN_DEPT_NM_EN, NM_KO, NM_EN, TELNO_KO, EMAIL_KO, C_SITE_URL, PSITION
+	FROM TN_IX_DC_DTA 
+	WHERE ix_no = #{ix_no}
+</select>
+
+<!-- 메타정보 검색결과 -->
+<select id="searchMetaList" resultType="metaBean">
+	SELECT a.up_list_code, a.list_code, (select distinct list_code_nm as up_list_code_nm from tn_meta_list where list_code = a.up_list_code) up_list_code_nm, a.list_code_nm, b.instt
+	<if test="top_code_id.equals('META001')">
+      , (select distinct list_code_nm as up_list_code_nm from tn_meta_list where list_code = a.up_list_code) || '>' || a.list_code_nm || '>' || b.ix_stats_nm_ko as list_path
+    </if>
+    <if test="top_code_id.equals('META002')">
+      , (select distinct instt from tn_meta_list where list_code = a.up_list_code) || '>' || b.ix_stats_nm_ko as list_path
+    </if>
+      , b.ix_stats_nm_ko, b.ix_no, b.stats_code
+	FROM tn_meta_list a, tn_ix_sumry_info b
+	WHERE a.list_code = b.stats_code
+	<if test="@org.apache.commons.lang.StringUtils@isNotEmpty(keyword)">
+		AND (UPPER(ix_stats_nm_ko) like '%' || #{keyword} ||'%' OR UPPER(ix_stats_nm_en) like '%' || #{keyword} ||'%')
+	</if> 
+	ORDER BY b.ix_no
+</select>
+
+<!-- 코드영문명 -->
+<select id="selectCodeNmEn" resultType="String">
+	SELECT list_code_nm_en
+	FROM tn_meta_list
+	WHERE 1=1
+	<if test="@org.apache.commons.lang.StringUtils@isEmpty(list_code)">
+		AND list_code = #{up_list_code}
+	</if>
+	<if test="@org.apache.commons.lang.StringUtils@isNotEmpty(list_code)">
+		AND list_code = #{list_code}
+	</if>
+</select>
+
+<select id="selectCodeNm" resultType="metaBean">
+	SELECT (SELECT TBL_NM FROM NSI_IN_007.TN_STBL_INFO WHERE TBL_ID = A.TBL_ID) AS TBL_NM
+            , (SELECT TBL_ENG_NM FROM NSI_IN_007.TN_STBL_INFO WHERE TBL_ID = A.TBL_ID) AS TBL_ENG_NM
+	     , A.TBL_ID
+	  FROM NSI_IN_007.TN_LIST_STBL_REL A
+	 WHERE 1=1
+	   AND A.TBL_ID = #{list_code}
+</select>
+</mapper>	

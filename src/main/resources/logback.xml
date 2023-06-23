@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<configuration>
+    <appender name="console" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss} %-5level - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <logger name="org.springframework" level="INFO" />
+    <logger name="org.mybatis.spring" level="INFO" />
+
+    <logger name="jdbc"                level="OFF" />
+    <logger name="jdbc.sqlonly"        level="INFO" />  <!-- 파라미터를 셋팅해서 출력-->
+    <logger name="jdbc.resultsettable" level="INFO" />  <!-- 결과값을 보여줌-->
+    <logger name="jdbc.sqltiming"      level="INFO" />
+    <logger name="log4jdbc.debug"      level="INFO" />
+
+    <root level="debug">
+        <appender-ref ref="console" />
+<!--        <appender-ref ref="file_log" />-->
+    </root>
+</configuration>

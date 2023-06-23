@@ -1,0 +1,246 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="tblInfo">	
+
+	<!-- 통계표 목록 조회 -->
+	<select id="selectTblList" resultType="tblInfoBean">
+		SELECT VW_CD, LIST_ID, TBL_ID, 
+			   UP_LIST_ID, LIST_TYPE, ITM_ID, 
+			   LVL, LIST_NM, LIST_PATH,
+        	   ( SELECT PRD_DE 
+        	     FROM   ( SELECT TBL_ID , MIN (STRT_PRD_DE)|| '~' || MAX (END_PRD_DE) AS PRD_DE,  
+        	     				 REPLACE(LISTAGG(NSI_IN_007.GET_PRD_NAME(PRD_SE),',') WITHIN GROUP(ORDER BY NSI_IN_007.GET_PRD_NAME(PRD_SE)),',','/') PRD_SE
+                          FROM   ( SELECT   * 
+                                   FROM     NSI_IN_007.TN_STBL_RECD_INFO 
+                                   ORDER BY TBL_ID, PRD_SE DESC, STRT_PRD_DE)
+                                   GROUP BY TBL_ID
+                                   ORDER BY TBL_ID ) B
+                          WHERE A.TBL_ID = B.TBL_ID ) PRD_DE,
+         	   ( SELECT PRD_SE 
+         	     FROM   ( SELECT TBL_ID, MIN (STRT_PRD_DE)|| '~'|| MAX (END_PRD_DE) AS PRD_DE,
+                                 REPLACE(LISTAGG(CASE WHEN NSI_IN_007.GET_PRD_NAME(PRD_SE) = '부정기' 
+                                                      THEN NVL2(PRD_NM,PRD_NM,'부정기') 
+                                                      ELSE NSI_IN_007.GET_PRD_NAME(PRD_SE) END,',') WITHIN GROUP(ORDER BY CASE WHEN NSI_IN_007.GET_PRD_NAME(PRD_SE) = '부정기' 
+                                                                                                                               THEN NVL2(PRD_NM,PRD_NM,'부정기') 
+                                                                                                                               ELSE NSI_IN_007.GET_PRD_NAME(PRD_SE) END),',', '/') PRD_SE
+                          FROM   ( SELECT   A.ORG_ID, A.TBL_ID, A.PRD_SE, A.STRT_PRD_DE, 
+                          				    A.END_PRD_DE, A.PUB_SE, A.STRT_RSTR_DE, 
+                          				    A.END_RSTR_DE, A.STRT_RLS_DE, A.END_RLS_DE, 
+                          				    A.LST_CHN_DE, A.LST_CHN_NM,B.PRD_NM
+					               FROM	    NSI_IN_007.TN_STBL_RECD_INFO A,  NSI_IN_007.TC_PRD_DETAIL B
+					               WHERE    A.PRD_DETAIL = B.PRD_DETAIL(+)
+					               ORDER BY TBL_ID, PRD_SE DESC, STRT_PRD_DE )
+                          		   GROUP BY TBL_ID
+                                   ORDER BY TBL_ID ) B
+                          WHERE A.TBL_ID = B.TBL_ID ) PRD_SE
+		FROM ( SELECT VW_CD, LIST_ID, TBL_ID, UP_LIST_ID, 
+					  LIST_NM, LIST_ENG_NM, LIST_TYPE, ITM_ID, LEVEL LVL, 
+					  SUBSTR(SYS_CONNECT_BY_PATH (LIST_NM, ' > '), 4) LIST_PATH, 
+					  SUBSTR(SYS_CONNECT_BY_PATH (LIST_ENG_NM, ' > '), 4) LIST_ENG_PATH
+		       FROM ( SELECT VW_CD, TBL_ID, LIST_ID,
+		                     DECODE(UP_LIST_ID, '','0',UP_LIST_ID) UP_LIST_ID,
+		             		 LIST_NM, LIST_ENG_NM, LIST_TYPE, LIST_SN, UP_LIST_SN, ITM_ID
+		              FROM ( SELECT VW_CD, LIST_ID AS TBL_ID, LIST_ID,
+		                     		UP_LIST_ID, LIST_NM, LIST_ENG_NM,
+		                      		'SVC' AS LIST_TYPE, 0 LIST_SN,
+		                  			LIST_SN UP_LIST_SN, '' ITM_ID
+		                 	 FROM   NSI_IN_007.TN_SRVC_LIST
+		                     WHERE  VW_CD = #{vw_cd}
+		                     AND    PUB_SE NOT IN ('1210111', '1210112')
+		                     UNION
+		                     SELECT A.VW_CD, A.TBL_ID, A.TBL_ID AS LIST_ID,
+		                     		A.LIST_ID AS UP_LIST_ID, B.TBL_NM AS LIST_NM,
+		                     	    B.TBL_ENG_NM AS LIST_ENG_NM, 'TBL' AS LIST_TYPE,
+		                     		LIST_SN, 0 UP_LIST_SN, ITM_ID
+		                     FROM   NSI_IN_007.TN_LIST_STBL_REL A,  NSI_IN_007.TN_STBL_INFO B
+		                 	 WHERE  B.TBL_ID = A.TBL_ID
+		                     AND    A.PUB_SE NOT IN ('1210111', '1210112')
+		                 	 AND    A.VW_CD = #{vw_cd} ) )
+		       START WITH 		UP_LIST_ID = #{up_list_id}
+		       CONNECT BY PRIOR LIST_ID = UP_LIST_ID
+		       <if test="@org.apache.commons.lang.StringUtils@isEmpty(orderby)">
+		           ORDER SIBLINGS BY UP_LIST_ID, UP_LIST_SN, LIST_SN
+		       </if>
+		       <if test="@org.apache.commons.lang.StringUtils@isNotEmpty(orderby)">
+		       	    ORDER SIBLINGS BY LIST_NM
+		       </if>
+		) A WHERE 1=1
+		<if test="@org.apache.commons.lang.StringUtils@isEmpty(lvl)">
+			AND LVL=1
+		</if>
+		<if test="@org.apache.commons.lang.StringUtils@isNotEmpty(lvl)">
+			AND LVL=#{lvl}
+		</if>
+		<if test="@org.apache.commons.lang.StringUtils@isNotEmpty(keyword)">
+			AND UPPER(LIST_NM) LIKE '%' || UPPER(#{keyword}) || '%'
+		</if>
+	</select>
+
+	<!-- 통계표 레벨 조회 -->
+	<select id="selectTblMaxLevel" resultType="int">
+		SELECT NVL(MAX(LVL), 0) LVL
+		FROM   ( SELECT LEVEL LVL
+		         FROM   ( SELECT LIST_ID, DECODE (UP_LIST_ID, '', '0', UP_LIST_ID) UP_LIST_ID
+		                  FROM   ( SELECT LIST_ID, UP_LIST_ID
+		                           FROM   NSI_IN_007.TN_SRVC_LIST
+		                           WHERE  VW_CD = #{vw_cd}
+		                           AND    PUB_SE NOT IN ('1210111', '1210112')
+		                           UNION
+		                           SELECT A.TBL_ID AS LIST_ID, A.LIST_ID AS UP_LIST_ID
+		                           FROM   NSI_IN_007.TN_LIST_STBL_REL A,  NSI_IN_007.TN_STBL_INFO B
+		                           WHERE  B.TBL_ID = A.TBL_ID 
+		                           AND A.PUB_SE NOT IN ('1210111', '1210112') 
+		                           AND A.VW_CD = #{vw_cd} ) )
+				 START WITH UP_LIST_ID = #{up_list_id}
+				 CONNECT BY PRIOR LIST_ID = UP_LIST_ID )
+	</select>
+
+	<select id="selectTblInfoStatNm" resultType="String">
+		SELECT STAT_ENG_NM AS STAT_NM
+		FROM   TN_STAT
+		WHERE  STAT_ID = #{stat_id}
+	</select>
+	
+    <select id="selectMainTblInfoList" resultType="int">
+	    SELECT NVL(COUNT(*),0) CNT
+		FROM   NSI_IN_007.TN_LIST_STBL_REL
+		WHERE  LIST_ID LIKE #{up_list_id} || '%' 
+		AND    VW_CD = #{vw_cd}
+		AND    PUB_SE NOT IN ('1210111', '1210112')
+    </select>
+    
+    <!-- 출처별 통계DB 기관 목록 조회 -->
+	<select id="selectTblSrcOrgList" resultType="tblInfoBean">
+		SELECT
+		LIST_NM, <![CDATA[REPLACE(LIST_NM, '''', '&apos;') AS TBL_ID ]]>
+		FROM (
+		    SELECT TRIM(SUBSTR(STAT_NM, 0, INSTR(STAT_NM, ',')-1)) LIST_NM
+		         , TRIM(SUBSTR(STAT_ENG_NM, 0, INSTR(STAT_ENG_NM, ',')-1)) LIST_ENG_NM
+		      FROM  NSI_IN_007.TN_STAT A
+			         , NSI_IN_007.TN_STBL_STAT_REL B
+			         , (  SELECT CA.TBL_ID, MAX (CA.TBL_NM) TBL_NM, MAX (CA.TBL_ENG_NM) TBL_ENG_NM
+							    FROM  NSI_IN_007.TN_STBL_INFO CA
+							       , (select distinct * from (
+							                select tbl_id from NSI_IN_007.TN_LIST_STBL_REL WHERE VW_CD = 'MT_ATITLE'
+							          )
+							         ) CB
+							   WHERE CA.TBL_ID = CB.TBL_ID
+							GROUP BY CA.TBL_ID
+			           ) C
+			     WHERE A.STAT_ID = B.STAT_ID
+			       AND B.ORG_ID='007'
+			       AND B.TBL_ID = C.TBL_ID
+		)
+
+		WHERE LIST_NM IS NOT NULL
+		GROUP BY LIST_NM
+		ORDER BY CONVERT (LIST_NM, 'ISO2022-KR')
+	</select>
+
+	<!-- 출처별 통계DB 명칭 목록 조회 -->
+	<select id="selectTblSrcDataList" resultType="tblInfoBean">
+		SELECT
+			LIST_NM, <![CDATA[REPLACE(LIST_NM, '''', '&apos;') AS TBL_ID ]]>, ORG_NM AS UP_UP_LIST_ID
+		FROM (
+		SELECT TRIM(SUBSTR(STAT_NM, INSTR(STAT_NM, ',')+1)) LIST_NM
+		     , TRIM(SUBSTR(STAT_ENG_NM, INSTR(STAT_ENG_NM, ',')+1)) LIST_ENG_NM
+		     , TRIM(SUBSTR(STAT_NM, 0, INSTR(STAT_NM, ',')-1)) ORG_NM
+		     , TRIM(SUBSTR(STAT_ENG_NM, 0, INSTR(STAT_ENG_NM, ',')-1)) ORG_ENG_NM
+		  FROM  NSI_IN_007.TN_STAT A
+		         , NSI_IN_007.TN_STBL_STAT_REL B
+		         , (  SELECT CA.TBL_ID, MAX (CA.TBL_NM) TBL_NM, MAX (CA.TBL_ENG_NM) TBL_ENG_NM
+						    FROM  NSI_IN_007.TN_STBL_INFO CA
+						       , (select distinct * from (
+						                select tbl_id from NSI_IN_007.TN_LIST_STBL_REL WHERE VW_CD = 'MT_ATITLE'
+						          )
+						         ) CB
+						   WHERE CA.TBL_ID = CB.TBL_ID
+						GROUP BY CA.TBL_ID
+		           ) C
+		     WHERE A.STAT_ID = B.STAT_ID
+		       AND B.ORG_ID ='007'
+		       AND B.TBL_ID = C.TBL_ID
+		)
+	    <!-- WHERE ORG_NM = #{up_list_id} -->
+	    GROUP BY LIST_NM, ORG_NM
+	    ORDER BY CONVERT (LIST_NM, 'ISO2022-KR')
+	</select>
+
+	<!-- 출처별 통계DB 통계표 목록 조회 -->
+	<select id="selectTblSrcList" resultType="tblInfoBean">
+		SELECT A.*
+             , (SELECT PRD_DE
+                  FROM ( SELECT TBL_ID, MIN (STRT_PRD_DE) || '~' || MAX (END_PRD_DE) AS PRD_DE, REPLACE (LISTAGG(NSI_IN_007.GET_PRD_NAME (PRD_SE),',') WITHIN GROUP(ORDER BY NSI_IN_007.GET_PRD_NAME (PRD_SE)), ',', '/') PRD_SE
+                           FROM ( SELECT *
+                                    FROM  NSI_IN_007.TN_STBL_RECD_INFO
+                                   ORDER BY TBL_ID, PRD_SE DESC, STRT_PRD_DE)
+                          GROUP BY TBL_ID
+                          ORDER BY TBL_ID) B
+                 WHERE A.TBL_ID = B.TBL_ID) PRD_DE
+             , ( SELECT PRD_SE
+                   FROM ( SELECT TBL_ID
+                               , MIN (STRT_PRD_DE) || '~' || MAX (END_PRD_DE) AS PRD_DE
+                               , REPLACE (LISTAGG(NSI_IN_007.GET_PRD_NAME (PRD_SE),',') WITHIN GROUP(ORDER BY NSI_IN_007.GET_PRD_NAME (PRD_SE)), ',', '/') PRD_SE
+                            FROM ( SELECT *
+                                     FROM  NSI_IN_007.TN_STBL_RECD_INFO
+                                    ORDER BY TBL_ID, PRD_SE DESC, STRT_PRD_DE)
+                           GROUP BY TBL_ID
+                           ORDER BY TBL_ID) B
+                  WHERE A.TBL_ID = B.TBL_ID) PRD_SE
+         FROM ( SELECT TBL_ID
+				, LIST_NM , ORG_NM || ' > ' || LIST_NM AS LIST_PATH
+		  FROM (
+		    SELECT C.TBL_ID, C.TBL_NM AS LIST_NM, C.TBL_ENG_NM AS LIST_ENG_NM
+		         , TRIM(SUBSTR(A.STAT_NM, INSTR(A.STAT_NM, ',')+1)) STAT_NM
+		         , TRIM(SUBSTR(A.STAT_ENG_NM, INSTR(A.STAT_ENG_NM, ',')+1)) STAT_ENG_NM
+		         , TRIM(SUBSTR(A.STAT_NM, 0, INSTR(A.STAT_NM, ',')-1)) ORG_NM
+		         , TRIM(SUBSTR(A.STAT_ENG_NM, 0, INSTR(A.STAT_ENG_NM, ',')-1)) ORG_ENG_NM
+		      FROM  NSI_IN_007.TN_STAT A
+			         , NSI_IN_007.TN_STBL_STAT_REL B
+			         , (  SELECT CA.TBL_ID, MAX (CA.TBL_NM) TBL_NM, MAX (CA.TBL_ENG_NM) TBL_ENG_NM
+							    FROM  NSI_IN_007.TN_STBL_INFO CA
+							       , (select distinct * from (
+							                select tbl_id from NSI_IN_007.TN_LIST_STBL_REL WHERE VW_CD = 'MT_ATITLE'
+							          )
+							         ) CB
+							   WHERE CA.TBL_ID = CB.TBL_ID
+							GROUP BY CA.TBL_ID
+			           ) C
+					     WHERE A.STAT_ID = B.STAT_ID
+					       AND B.TBL_ID = C.TBL_ID
+					       AND B.ORG_ID='007'
+
+				<if test="@org.apache.commons.lang.StringUtils@isEmpty(keyword)">
+					AND TRIM(SUBSTR(A.STAT_NM, 1, INSTR(A.STAT_NM, ',') - 1)) = #{up_list_id}
+				</if>
+				<if test="@org.apache.commons.lang.StringUtils@isNotEmpty(keyword)">
+					AND UPPER(C.TBL_NM) LIKE '%' || UPPER(#{keyword}) || '%'
+				</if>
+				<if test="@org.apache.commons.lang.StringUtils@isEmpty(orderby)">
+			     	ORDER BY CONVERT(A.STAT_NM, 'ISO2022-KR'), CONVERT (C.TBL_NM, 'ISO2022-KR')
+			    </if>
+			    <if test="@org.apache.commons.lang.StringUtils@isNotEmpty(orderby)">
+			     	ORDER BY LIST_NM
+			    </if>
+		) WHERE STAT_NM IS NOT NULL ) A
+
+	</select>
+	<select id="countMetaInfo" resultType="tblInfoBean">
+		SELECT COUNT(*) FROM TN_IX_SUMRY_INFO
+	    WHERE STATS_THEMA = (SELECT  B.TBL_NM AS STATS_THEMA
+	                           FROM   NSI_IN_007.TN_LIST_STBL_REL A,  NSI_IN_007.TN_STBL_INFO B
+	                          WHERE  B.TBL_ID = A.TBL_ID
+			                    AND  A.PUB_SE NOT IN ('1210111', '1210112')
+	                            AND  A.TBL_ID = #{tbl_id})
+    </select>
+    
+	<select id="selectMetaInfo" resultType="tblInfoBean">
+		SELECT * FROM TN_IX_SUMRY_INFO
+	    WHERE STATS_THEMA = (SELECT  B.TBL_NM AS STATS_THEMA
+	                           FROM   NSI_IN_007.TN_LIST_STBL_REL A,  NSI_IN_007.TN_STBL_INFO B
+	                          WHERE  B.TBL_ID = A.TBL_ID
+			                    AND  A.PUB_SE NOT IN ('1210111', '1210112')
+	                            AND  A.TBL_ID = #{tbl_id})
+    </select>
+</mapper>

@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:security="http://www.springframework.org/schema/security"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xsi:schemaLocation="http://www.springframework.org/schema/security http://www.springframework.org/schema/security/spring-security.xsd
+		http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+		http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd">
+
+
+<context:component-scan base-package="com.nurim"/>
+
+<security:global-method-security secured-annotations="enabled" pre-post-annotations="enabled"/>
+
+<security:http pattern="/js/**" security="none"/>
+<security:http pattern="/css/**" security="none"/>
+<security:http pattern="/fonts/**" security="none"/>
+<security:http pattern="/img/**" security="none"/>
+    
+<security:http auto-config = "true" use-expressions = "true">		
+	
+<security:headers>
+		<security:xss-protection enabled="true" block="true"/>
+		<security:frame-options/>
+		<security:content-type-options/>
+		<security:content-security-policy policy-directives="default-src * 'self' 'unsafe-inline' 'unsafe-eval'; img-src data: * ;"/>
+	</security:headers>
+		
+	<security:intercept-url pattern="*" access="permitAll" />     
+	
+	<security:csrf disabled="false"/>
+	
+	<security:anonymous granted-authority="ANONYMOUS"/>
+	
+	<security:custom-filter position="LAST" ref="CustomFilter"/>	
+		 	
+</security:http>
+
+<security:authentication-manager/>
+
+<bean id="CustomFilter" class="com.nurim.oecdstat.common.security.CustomFilter"/>
+
+</beans>
